@@ -2,6 +2,10 @@ import { createAuth } from '@keystone-next/auth';
 import { User } from './schemas/User';
 import { Product } from './schemas/Product';
 import { ProductImage } from './schemas/ProductImage';
+import { CartItem } from './schemas/CartItem';
+import { OrderItem } from './schemas/OrderItem';
+import { Order } from './schemas/Order';
+import { Role } from './schemas/Role';
 import { config, createSchema } from '@keystone-next/keystone/schema';
 import {
     withItemData,
@@ -9,6 +13,9 @@ import {
 } from '@keystone-next/keystone/session';
 import 'dotenv/config';
 import { insertSeedData } from './seed-data';
+import { sendPasswordResetEmail } from './lib/mail';
+import { extendGraphqlSchema } from './mutations';
+import { permissionsList } from './schemas/fileds';
 
 const databaseURL = process.env.DATABASE_URL || 'mongodb://localhost/keystone-sick-fits-tutorial';
 
@@ -25,6 +32,12 @@ const { withAuth } = createAuth({
       fields: ['name', 'email', 'password'],
       // TODO: Add in inital roles here
     },
+    passwordResetLink: {
+        async sendToken(args) {
+            // send the email
+            await sendPasswordResetEmail(args.token, args.identity);
+        },
+    }
 });
 
 export default withAuth(
@@ -50,8 +63,13 @@ export default withAuth(
             // Schema items go in here
             User,
             Product,
-            ProductImage
+            ProductImage,
+            CartItem,
+            OrderItem,
+            Order,
+            Role
         }),
+        extendGraphqlSchema,
         ui: {
             // TODO:change this for roles
             isAccessAllowed: ({ session }) => 
@@ -60,7 +78,7 @@ export default withAuth(
         },
         session: withItemData(statelessSessions(sessionConfig), {
             // GraphQL Query
-            User: `id`,
+            User: `id name email role { ${permissionsList.join(' ')} }`,
         }),
     })
 ); 
